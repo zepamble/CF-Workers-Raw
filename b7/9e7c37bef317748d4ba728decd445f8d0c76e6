@@ -1,0 +1,26 @@
+worker.test.mjs
+  s_5164daca040bf1::t_c1f7ed77c54a34 22-23,25-27,35-37
+  s_5164daca040bf1::t_fbb59a7e3f06b2 1-21,24,28-34,38-91
+_worker.js
+  s_5164daca040bf1::t_8f9e34bcb8243d 23,62,70,72-77,88-93,97-108,111-116,119
+  s_5164daca040bf1::t_c1f7ed77c54a34 109-110
+README.md
+  s_5164daca040bf1::t_2ca384be1ce065 15-20,22-23,25-32
+  s_5164daca040bf1::t_c1f7ed77c54a34 21,24
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.16",
+  "base_commit_sha": "b79e7c37bef317748d4ba728decd445f8d0c76e6",
+  "prompts": {},
+  "sessions": {
+    "s_5164daca040bf1": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "01a18343-47e2-76d1-bbae-ec652d81aff5",
+        "model": "gpt-6.1-sol"
+      },
+      "human_author": "zepamble <qw523jnmd@gmail.com>"
+    }
+  }
+}
