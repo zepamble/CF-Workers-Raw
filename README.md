@@ -12,6 +12,24 @@
 > [!TIP]
 > **还有 [EdgeOne Pages 版本](https://github.com/cmliu/CF-Workers-Raw/tree/EdgeOne)**
 
+## proxy-configs 配置模板
+
+本分支为 `zepamble/proxy-configs` 增加配置模板处理。仅当上游地址精确为 `https://raw.githubusercontent.com/zepamble/proxy-configs/main/Config.conf` 时启用。
+
+部署到现有 `ghp.zepamble.com` Worker，保留原域名和 Secret。`GH_TOKEN` 是 GitHub 凭据，`TOKEN` 是独立的下载密钥，两者必须不同，均应在 Cloudflare 设置为 Secret。使用 TOKEN_PATH 时，保护路径须覆盖整个仓库（包括 Config.conf 和 rules/），不能只保护主配置。
+
+1. GitHub 的 Config.conf 中，需要下载鉴权的链接使用 `?token=__DOWNLOAD_TOKEN__`；已有其他查询参数时使用 `&token=__DOWNLOAD_TOKEN__`。新增列表无需修改 Worker。
+2. 部署本目录的 `_worker.js` 到 **ghp** 对应 Worker。不要覆盖公共 gh 服务。若使用 Wrangler，先核对实际 Worker 名称；仓库中的默认 name 不保证与已上线实例相同。
+3. 在 Tower 的远程规则方案导入入口使用 `https://ghp.zepamble.com/https://raw.githubusercontent.com/zepamble/proxy-configs/main/Config.conf?token=你的下载密钥`。
+4. Worker 验证下载密钥后读取 GitHub 模板，将查询参数值恰好为 __DOWNLOAD_TOKEN__ 的 token 占位符替换成经过 URL 编码的下载密钥。不含占位符的公共 gh 链接、普通 __DOWNLOAD_TOKEN__ 文字不变；规则列表原样返回。只在受信任的下载地址中使用此占位符，因为替换后的地址将携带下载密钥。
+5. 后续只维护 GitHub 模板和规则文件，不需要 Config.local.conf。修改策略组等主配置结构后，需要让 Tower 重新读取/导入主方案；刷新规则列表不等于更新主方案。
+
+若 Tower 当前导入流程不保留远程来源更新能力，可用上述地址下载已填好 Token 的文本，再粘贴到手动编辑器，无需本地替换。
+
+成功的文件响应带 `Cache-Control: private, no-store`，模板响应去除旧 ETag、长度和编码等上游元数据。GitHub 凭据仅用于上游请求，不写入返回配置。返回内容及客户端导出文件仍含下载密钥，不要提交仓库或公开分享；不要记录完整请求 URL。启用 GH_TOKEN + TOKEN 时，缺失或错误的下载密钥直接拒绝，不再尝试将其作为 GitHub 凭据使用。
+
+本地验证：`node --test worker.test.mjs`，使用模拟请求和测试凭据，不连接真实 GitHub，也不部署。安全复核范围为下载 URL、入口鉴权、GitHub Secret 和返回文件；没有新增依赖或存储。当前仅完成本地测试，部署后仍需验证无 Token 拒绝、正确 Token 返回配置、四份列表可下载及 Tower 实际导入。
+
 ## 📖 如何使用？ [📺 视频教程](https://www.youtube.com/watch?v=T-bK5o96lqI)
 
 假设你的Cloudflare Workers项目部署在`raw.090227.xyz`，而你要访问的私有文件是`https://raw.githubusercontent.com/cmliu/CF-Workers-Raw/main/_worker.js`。

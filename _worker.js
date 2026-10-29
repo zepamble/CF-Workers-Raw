@@ -1,4 +1,3 @@
-let token = "";
 export default {
 	async fetch(request, env) {
 		const url = new URL(request.url);
@@ -21,6 +20,7 @@ export default {
 			// 初始化请求头
 			const headers = new Headers();
 			let authTokenSet = false; // 标记是否已经设置了认证token
+			let accessToken;
 			
 			// 检查TOKEN_PATH特殊路径鉴权
 			if (env.TOKEN_PATH) {
@@ -59,6 +59,7 @@ export default {
 						}
 						headers.append('Authorization', `token ${env.GH_TOKEN}`);
 						authTokenSet = true;
+						accessToken = providedToken;
 						break; // 找到匹配的路径配置后退出循环
 					}
 				}
@@ -66,10 +67,14 @@ export default {
 			
 			// 如果TOKEN_PATH没有设置认证，使用默认token逻辑
 			if (!authTokenSet) {
+				let token;
 				if (env.GH_TOKEN && env.TOKEN) {
-					if (env.TOKEN == url.searchParams.get('token')) token = env.GH_TOKEN || token;
-					else token = url.searchParams.get('token') || token;
-				} else token = url.searchParams.get('token') || env.GH_TOKEN || env.TOKEN || token;
+					if (env.TOKEN !== url.searchParams.get('token')) {
+						return new Response('TOKEN错误', { status: 403 });
+					}
+					token = env.GH_TOKEN;
+					accessToken = env.TOKEN;
+				} else token = url.searchParams.get('token') || env.GH_TOKEN || env.TOKEN;
 				
 				const githubToken = token;
 				//console.log(githubToken);
@@ -80,13 +85,38 @@ export default {
 			}
 
 			// 发起请求
-			const response = await fetch(githubRawUrl, { headers });
+			let response;
+			try {
+				response = await fetch(githubRawUrl, { headers, redirect: 'manual' });
+			} catch {
+				return new Response('上游连接失败', { status: 502 });
+			}
 
 			// 检查请求是否成功 (状态码 200 到 299)
 			if (response.ok) {
+				const responseHeaders = new Headers(response.headers);
+				responseHeaders.set('Cache-Control', 'private, no-store');
+				if (githubRawUrl === 'https://raw.githubusercontent.com/zepamble/proxy-configs/main/Config.conf') {
+					if (!accessToken || accessToken === env.GH_TOKEN) {
+						return new Response('配置模板需要独立的下载TOKEN鉴权', { status: 500 });
+					}
+					let text;
+					try {
+						text = await response.text();
+					} catch {
+						return new Response('上游读取失败', { status: 502 });
+					}
+					text = text.replace(/([?&]token=)__DOWNLOAD_TOKEN__(?=[&,\s#]|$)/g,
+						(_, parameter) => parameter + encodeURIComponent(accessToken));
+					for (const name of ['Content-Length', 'Content-Encoding', 'ETag', 'Last-Modified', 'Content-MD5', 'Content-Range', 'Accept-Ranges']) {
+						responseHeaders.delete(name);
+					}
+					responseHeaders.set('Content-Type', 'text/plain; charset=utf-8');
+					return new Response(text, { status: response.status, headers: responseHeaders });
+				}
 				return new Response(response.body, {
 					status: response.status,
-					headers: response.headers
+					headers: responseHeaders
 				});
 			} else {
 				const errorText = env.ERROR || '无法获取文件，检查路径或TOKEN是否正确。';
